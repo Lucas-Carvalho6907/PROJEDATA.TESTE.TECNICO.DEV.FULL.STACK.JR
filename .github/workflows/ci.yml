@@ -1,0 +1,38 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: inventory_db
+          POSTGRES_USER: inventory_user
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+      - name: Run SQL scripts
+        run: |
+          PGPASSWORD=password psql -h localhost -U inventory_user -d inventory_db -f database/create_tables.sql
+          PGPASSWORD=password psql -h localhost -U inventory_user -d inventory_db -f database/insert_sample_data.sql
+      - name: Test Back-end
+        run: cd backend && mvn test
+      - name: Test Front-end
+        run: cd frontend && npm install && npm test -- --watchAll=false
